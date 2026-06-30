@@ -220,29 +220,31 @@ window.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <script>
-// Ocultar tarjetas según rol (sin redirigir)
-window.addEventListener('load', () => {
-  const check = setInterval(() => {
+// Control de acceso por rol en index
+// El guard de cada página bloquea accesos directos no autorizados.
+// Aquí solo ocultamos las tarjetas para que la UI sea coherente con el rol.
+document.addEventListener('DOMContentLoaded', () => {
+  function applyRol() {
     const profile = window._userProfile;
-    if (profile === undefined) return; // aún cargando
-    clearInterval(check);
+    // Si aún no cargó, reintentar
+    if (profile === undefined) { setTimeout(applyRol, 300); return; }
 
-    const rol = profile?.rol || 'recepcion';
-    const esGerente = ['admin','gerente'].includes(rol);
+    const rol = (profile && profile.rol) ? profile.rol : 'recepcion';
+    const esGerente = ['admin', 'gerente'].includes(rol);
 
     if (!esGerente) {
-      // Ocultar Calculadora y Dashboard para no-gerentes
       document.querySelectorAll('a.card').forEach(card => {
         const href = card.getAttribute('href') || '';
         if (href.includes('comisiones') || href.includes('dashboard')) {
           card.style.display = 'none';
         }
       });
-      // Ajustar grid a 1 columna si solo queda 1 tarjeta
-      const visible = document.querySelectorAll('a.card:not([style*="none"])').length;
-      if (visible === 1) document.querySelector('.cards').style.gridTemplateColumns = '1fr';
+      const visible = document.querySelectorAll('a.card:not([style*="display: none"]):not([style*="display:none"])').length;
+      if (visible <= 1) document.querySelector('.cards').style.gridTemplateColumns = '1fr';
     }
-  }, 200);
+  }
+  // Primer intento después de que el guard haya tenido tiempo de cargar
+  setTimeout(applyRol, 600);
 });
 </script>
 </body>
