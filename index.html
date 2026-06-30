@@ -173,7 +173,7 @@ window.addEventListener('DOMContentLoaded', () => {
         <span class="card-btn">Abrir calculadora →</span>
       </a>
 
-      <a class="card" href="dashboard.html">
+      <a class="card" href="dashboard_clinica.html">
         <div class="card-icon">📊</div>
         <h3>Dashboard de Resultados</h3>
         <p>Visualiza el desempeño mensual, semanal o quincenal de la clínica con gráficos interactivos.</p>
@@ -219,5 +219,30 @@ window.addEventListener('DOMContentLoaded', () => {
   })();
 </script>
 
+<script>
+// Mostrar/ocultar tarjetas según rol
+document.addEventListener('DOMContentLoaded', () => {
+  // Esperar a que el guard cargue el perfil
+  const waitForProfile = setInterval(() => {
+    if (!window._userProfile) return;
+    clearInterval(waitForProfile);
+    const rol = window._userProfile.rol || 'recepcion';
+    const esGerente = ['admin','gerente'].includes(rol);
+
+    // Calculadora y Dashboard: solo gerentes
+    document.querySelectorAll('a.card').forEach(card => {
+      const href = card.getAttribute('href');
+      if ((href === 'comisiones.html' || href === 'dashboard_clinica.html') && !esGerente) {
+        card.style.display = 'none';
+      }
+    });
+
+    // Si no es gerente, redirigir directo al histórico
+    if (!esGerente) {
+      window.location.replace('historico.html');
+    }
+  }, 100);
+});
+</script>
 </body>
 </html>

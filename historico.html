@@ -716,10 +716,21 @@ window.addEventListener('load', async () => {
   const rol = window._userProfile?.rol || 'recepcion';
   _isAdmin = ['admin','gerente'].includes(rol);
 
-  // Panel de admin
+  // Panel de admin y controles de gerente
   if(_isAdmin){
     const adminBar = document.getElementById('admin_bar');
     if(adminBar) adminBar.style.display='flex';
+  } else {
+    // Ocultar controles de carga de archivos para no-gerentes
+    ['fAdd','fReplace','fAddName','fReplaceName'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.closest('.field') && (el.closest('.field').style.display='none');
+    });
+    // Ocultar banner de datos pendientes (solo gerentes pueden importar)
+    const banner = document.getElementById('pending_banner');
+    if(banner) banner.style.display='none';
+    // Ocultar banner de datos precargados
+    document.querySelectorAll('.banner').forEach(b => b.style.display='none');
   }
 
   // Progreso mes actual
