@@ -232,58 +232,71 @@
 <footer>CSI &middot; Sistema de Comisiones</footer>
 
 <script>
-  // ─── CONFIGURACIÓN ───────────────────────────────────────────
-  // Reemplaza estos valores con los de tu proyecto en Supabase
-  // Dashboard → Settings → API
   const SUPABASE_URL  = 'https://bfrduldmcybnffjjwotb.supabase.co';
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmcmR1bGRtY3libmZmamp3b3RiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NjQ5MzgsImV4cCI6MjA5ODM0MDkzOH0.tAje3855dqhF0ncfx2jdmQM_bi735vVwoUY2aUZnNCo';
-  // ─────────────────────────────────────────────────────────────
 
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  let sbClient = null;
 
-  // Redirección según rol
   const RUTAS_POR_ROL = {
-    admin:      'index.html',
-    gerente:    'index.html',
-    operadora:  'historico.html',
-    doctor:     'historico.html',
-    asesor:     'historico.html',
-    recepcion:  'historico.html',
+    admin:     'index.html',
+    gerente:   'index.html',
+    operadora: 'historico.html',
+    doctor:    'historico.html',
+    asesor:    'historico.html',
+    recepcion: 'historico.html',
   };
 
-  // Si ya hay sesión activa, redirigir directamente
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    if (session) redirectByRole(session.user.id);
-  });
-
-  // Mostrar/ocultar contraseña
-  document.getElementById('showPwd').addEventListener('change', function () {
-    document.getElementById('password').type = this.checked ? 'text' : 'password';
-  });
-
-  // Login
-  document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email    = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
-
-    setLoading(true);
-    hideError();
-
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      setLoading(false);
-      showError(traducirError(error.message));
+  document.addEventListener('DOMContentLoaded', async () => {
+    // Verificar que el SDK cargó
+    if (!window.supabase) {
+      showError('Error cargando el sistema. Recarga la página.');
       return;
     }
 
-    // Obtener rol del perfil
-    await redirectByRole(data.user.id);
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+    // Mostrar/ocultar contraseña
+    document.getElementById('showPwd').addEventListener('change', function () {
+      document.getElementById('password').type = this.checked ? 'text' : 'password';
+    });
+
+    // Submit login
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      setLoading(true);
+      hideError();
+
+      const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        setLoading(false);
+        showError(traducirError(error.message));
+        return;
+      }
+      await redirectByRole(data.user.id);
+    });
+
+    // Recuperar contraseña
+    document.getElementById('forgotLink').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      if (!email) { showError('Escribe tu correo arriba para recuperar la contraseña.'); return; }
+      const { error } = await sbClient.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + window.location.pathname.replace('login.html','') + 'login.html'
+      });
+      if (error) showError('No se pudo enviar el correo. Verifica la dirección.');
+      else showError('✓ Revisa tu correo para restablecer la contraseña.', 'success');
+    });
+
+    // Si ya hay sesión activa, redirigir
+    const { data: { session } } = await sbClient.auth.getSession();
+    if (session) await redirectByRole(session.user.id);
   });
 
   async function redirectByRole(userId) {
-    const { data: profile } = await supabase
+    const { data: profile } = await sbClient
       .from('profiles')
       .select('rol')
       .eq('id', userId)
@@ -293,24 +306,6 @@
     const ruta = RUTAS_POR_ROL[rol] ?? 'historico.html';
     window.location.href = ruta;
   }
-
-  // Recuperar contraseña
-  document.getElementById('forgotLink').addEventListener('click', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('email').value.trim();
-    if (!email) {
-      showError('Escribe tu correo arriba para recuperar la contraseña.');
-      return;
-    }
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + '/reset-password.html'
-    });
-    if (error) {
-      showError('No se pudo enviar el correo. Verifica la dirección.');
-    } else {
-      showError('✓ Revisa tu correo para restablecer la contraseña.', 'success');
-    }
-  });
 
   function setLoading(on) {
     document.getElementById('btnLogin').disabled = on;
