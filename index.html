@@ -220,28 +220,29 @@ window.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <script>
-// Mostrar/ocultar tarjetas según rol
-document.addEventListener('DOMContentLoaded', () => {
-  // Esperar a que el guard cargue el perfil
-  const waitForProfile = setInterval(() => {
-    if (!window._userProfile) return;
-    clearInterval(waitForProfile);
-    const rol = window._userProfile.rol || 'recepcion';
+// Ocultar tarjetas según rol (sin redirigir)
+window.addEventListener('load', () => {
+  const check = setInterval(() => {
+    const profile = window._userProfile;
+    if (profile === undefined) return; // aún cargando
+    clearInterval(check);
+
+    const rol = profile?.rol || 'recepcion';
     const esGerente = ['admin','gerente'].includes(rol);
 
-    // Calculadora y Dashboard: solo gerentes
-    document.querySelectorAll('a.card').forEach(card => {
-      const href = card.getAttribute('href');
-      if ((href === 'comisiones.html' || href === 'dashboard_clinica.html') && !esGerente) {
-        card.style.display = 'none';
-      }
-    });
-
-    // Si no es gerente, redirigir directo al histórico
     if (!esGerente) {
-      window.location.replace('historico.html');
+      // Ocultar Calculadora y Dashboard para no-gerentes
+      document.querySelectorAll('a.card').forEach(card => {
+        const href = card.getAttribute('href') || '';
+        if (href.includes('comisiones') || href.includes('dashboard')) {
+          card.style.display = 'none';
+        }
+      });
+      // Ajustar grid a 1 columna si solo queda 1 tarjeta
+      const visible = document.querySelectorAll('a.card:not([style*="none"])').length;
+      if (visible === 1) document.querySelector('.cards').style.gridTemplateColumns = '1fr';
     }
-  }, 100);
+  }, 200);
 });
 </script>
 </body>
