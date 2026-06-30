@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSI · Acceso</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --brand: #54334E;
+    --brand-mid: #926587;
+    --brand-light: #F5EEEC;
+    --brand-pale: #CEC8C9;
+    --text: #2a1a28;
+    --surface: #fff;
+    --danger: #a32d2d;
+    --danger-bg: #fcebeb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--brand-light);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: var(--brand);
+    padding: 20px 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  header .htext { color: #fff; }
+  header .htext h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    line-height: 1.1;
+  }
+  header .htext p {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: .7;
+    margin-top: 3px;
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 24px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1.5px solid var(--brand-pale);
+    border-radius: 14px;
+    padding: 48px 44px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 4px 24px rgba(84,51,78,.08);
+  }
+
+  .card-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 26px;
+    color: var(--brand);
+    margin-bottom: 6px;
+  }
+  .card-sub {
+    font-size: 13px;
+    color: var(--brand-mid);
+    margin-bottom: 36px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+  .field label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--brand-mid);
+  }
+  .field input {
+    background: var(--brand-light);
+    border: 1.5px solid var(--brand-pale);
+    border-radius: 7px;
+    padding: 11px 14px;
+    font-size: 14px;
+    color: var(--text);
+    font-family: inherit;
+    transition: border-color .2s;
+    width: 100%;
+  }
+  .field input:focus {
+    outline: none;
+    border-color: var(--brand);
+    background: #fff;
+  }
+
+  .show-pwd {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--brand-mid);
+    cursor: pointer;
+    user-select: none;
+    margin-top: -10px;
+    margin-bottom: 28px;
+  }
+  .show-pwd input { width: auto; accent-color: var(--brand); }
+
+  .btn-login {
+    width: 100%;
+    padding: 13px;
+    background: var(--brand);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity .15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-login:hover { opacity: .85; }
+  .btn-login:disabled { opacity: .45; cursor: not-allowed; }
+
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-box {
+    background: var(--danger-bg);
+    border: 1.5px solid rgba(163,45,45,.2);
+    border-radius: 7px;
+    padding: 11px 14px;
+    font-size: 13px;
+    color: var(--danger);
+    margin-bottom: 20px;
+    display: none;
+  }
+
+  .forgot {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 12px;
+    color: var(--brand-mid);
+  }
+  .forgot a {
+    color: var(--brand);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .forgot a:hover { text-decoration: underline; }
+
+  footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 11px;
+    color: var(--brand-pale);
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="htext">
+    <h1>CSI · Portal</h1>
+    <p>Centro de Salud Integral</p>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <h2 class="card-title">Bienvenida</h2>
+    <p class="card-sub">Ingresa con tu correo y contraseña</p>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <form id="loginForm">
+      <div class="field">
+        <label for="email">Correo electrónico</label>
+        <input type="email" id="email" placeholder="tu@correo.com" required autocomplete="email">
+      </div>
+
+      <div class="field">
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+
+      <label class="show-pwd">
+        <input type="checkbox" id="showPwd"> Mostrar contraseña
+      </label>
+
+      <button type="submit" class="btn-login" id="btnLogin">
+        <span class="spinner" id="spinner"></span>
+        <span id="btnText">Ingresar</span>
+      </button>
+    </form>
+
+    <p class="forgot">
+      ¿Olvidaste tu contraseña? <a href="#" id="forgotLink">Recuperar acceso</a>
+    </p>
+  </div>
+</main>
+
+<footer>CSI &middot; Sistema de Comisiones</footer>
+
+<script>
+  // ─── CONFIGURACIÓN ───────────────────────────────────────────
+  // Reemplaza estos valores con los de tu proyecto en Supabase
+  // Dashboard → Settings → API
+  const SUPABASE_URL  = 'https://bfrduldmcybnffjjwotb.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmcmR1bGRtY3libmZmamp3b3RiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NjQ5MzgsImV4cCI6MjA5ODM0MDkzOH0.tAje3855dqhF0ncfx2jdmQM_bi735vVwoUY2aUZnNCo';
+  // ─────────────────────────────────────────────────────────────
+
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  // Redirección según rol
+  const RUTAS_POR_ROL = {
+    admin:      'index.html',
+    gerente:    'index.html',
+    operadora:  'historico.html',
+    doctor:     'historico.html',
+    asesor:     'historico.html',
+    recepcion:  'historico.html',
+  };
+
+  // Si ya hay sesión activa, redirigir directamente
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session) redirectByRole(session.user.id);
+  });
+
+  // Mostrar/ocultar contraseña
+  document.getElementById('showPwd').addEventListener('change', function () {
+    document.getElementById('password').type = this.checked ? 'text' : 'password';
+  });
+
+  // Login
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+
+    setLoading(true);
+    hideError();
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setLoading(false);
+      showError(traducirError(error.message));
+      return;
+    }
+
+    // Obtener rol del perfil
+    await redirectByRole(data.user.id);
+  });
+
+  async function redirectByRole(userId) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('rol')
+      .eq('id', userId)
+      .single();
+
+    const rol = profile?.rol ?? 'recepcion';
+    const ruta = RUTAS_POR_ROL[rol] ?? 'historico.html';
+    window.location.href = ruta;
+  }
+
+  // Recuperar contraseña
+  document.getElementById('forgotLink').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('email').value.trim();
+    if (!email) {
+      showError('Escribe tu correo arriba para recuperar la contraseña.');
+      return;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/reset-password.html'
+    });
+    if (error) {
+      showError('No se pudo enviar el correo. Verifica la dirección.');
+    } else {
+      showError('✓ Revisa tu correo para restablecer la contraseña.', 'success');
+    }
+  });
+
+  function setLoading(on) {
+    document.getElementById('btnLogin').disabled = on;
+    document.getElementById('spinner').style.display = on ? 'block' : 'none';
+    document.getElementById('btnText').textContent = on ? 'Ingresando…' : 'Ingresar';
+  }
+
+  function showError(msg, type = 'error') {
+    const box = document.getElementById('errorBox');
+    box.textContent = msg;
+    box.style.display = 'block';
+    if (type === 'success') {
+      box.style.background = '#eaf3de';
+      box.style.borderColor = 'rgba(59,109,17,.2)';
+      box.style.color = '#3b6d11';
+    }
+  }
+
+  function hideError() {
+    const box = document.getElementById('errorBox');
+    box.style.display = 'none';
+    box.style.background = '';
+    box.style.borderColor = '';
+    box.style.color = '';
+  }
+
+  function traducirError(msg) {
+    if (msg.includes('Invalid login credentials')) return 'Correo o contraseña incorrectos.';
+    if (msg.includes('Email not confirmed'))       return 'Confirma tu correo antes de ingresar.';
+    if (msg.includes('Too many requests'))         return 'Demasiados intentos. Espera unos minutos.';
+    return 'Error al ingresar. Intenta de nuevo.';
+  }
+</script>
+</body>
+</html>
