@@ -285,11 +285,11 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <div class="section-label">Personal (separar por punto y coma)</div>
         <div class="config-grid" style="grid-template-columns:1fr 1fr">
-          <div class="config-field"><label>Asesoras</label><input type="text" id="cfg_asesoras" value="Sandi, Karol; Leiva, Pamela"></div>
+          <div class="config-field"><label>Asesoras Heredia</label><input type="text" id="cfg_asesoras_her" value="Sandi, Karol; Leiva, Pamela"></div><div class="config-field"><label>Asesoras Lindora</label><input type="text" id="cfg_asesoras_lin" value="Ajoy, Alejandra; Portuguez, Ericka"></div>
           <div class="config-field"><label>Doctoras Heredia</label><input type="text" id="cfg_doctoras_her" value="Perez Araya, Dra. Carolina"></div>
           <div class="config-field"><label>Doctoras Lindora</label><input type="text" id="cfg_doctoras_lin" value="Roldan, Dra. Laura"></div>
-          <div class="config-field"><label>Operadoras Heredia</label><input type="text" id="cfg_op_her" value="Marin, Maria Paula; Vargas, Alejandra; Davila, Fernanda; Aguirre, Debbie"></div>
-          <div class="config-field"><label>Operadoras Lindora</label><input type="text" id="cfg_op_lin" value="Quiros, Kimberly; Rojas Godínez, Verónica"></div>
+          <div class="config-field"><label>Operadoras Heredia</label><input type="text" id="cfg_op_her" value="Marin, Maria Paula; Vargas, Alejandra; Davila, Fernanda; Aguirre, Debbie; Arguello, Ariana; Ortega, Catalina"></div>
+          <div class="config-field"><label>Operadoras Lindora</label><input type="text" id="cfg_op_lin" value="Quiros, Kimberly; Rojas Godínez, Verónica; Ortiz, Estefani"></div>
           <div class="config-field"><label>Recepción Heredia</label><input type="text" id="cfg_recepcion_her" value="Vasquez, Cindy; Alvarado, Vangy"></div>
           <div class="config-field"><label>Recepción Lindora</label><input type="text" id="cfg_recepcion_lin" value="Vargas, Majo"></div>
           <div class="config-field"><label>Gerentes Heredia</label><input type="text" id="cfg_ger_her" value="León, Gabriela; Natalia, Gutierrez"></div>
@@ -571,7 +571,7 @@ function calcularComisiones() {
   }
 
   // ── Config ──────────────────────────────────────────────────
-  const asesoras=list('cfg_asesoras');
+  const asesorasHer=list('cfg_asesoras_her'); const asesorasLin=list('cfg_asesoras_lin'); const asesoras=[...asesorasHer,...asesorasLin];
   const doctorasHer=list('cfg_doctoras_her'), doctorasLin=list('cfg_doctoras_lin');
   const doctoras=[...doctorasHer,...doctorasLin];
   const opHeredia=list('cfg_op_her'), opLindora=list('cfg_op_lin');
@@ -634,7 +634,12 @@ function calcularComisiones() {
   resultData=[];
 
   // Asesoras
-  asesoras.map(k=>({k,role:'Asesora'})).forEach(({k,role}) => {
+  // Map asesora → sucursal
+  const asesoraSucMap={};
+  asesorasHer.forEach(k=>asesoraSucMap[k]='Heredia');
+  asesorasLin.forEach(k=>asesoraSucMap[k]='Lindora');
+
+  asesoras.map(k=>({k,suc:asesoraSucMap[k]||''})).forEach(({k,suc}) => {
     const pd=findPD(k);
     const vp=findVP(k)||{total:0,bySpec:{},name:k,sucursal:'—'};
     if(!pd) log('log-warn',`⚠ Sin cumplimiento: ${k}`);
@@ -715,21 +720,54 @@ function calcularComisiones() {
       detalle:`Derivado $${fmt(dp.total)} (neto) | Piso $${fmt(piso)} | ${llegaPiso?'✓ '+v('op_alto')+'%':'✗ '+v('op_bajo')+'%'} = $${fmt(com)}`});
   });
 
-  // Recepción — vendedor scale + derivado 2%
-  const rcDerivadoPct=v('rc_derivado_pct')/100;
+  // Recepción — por especialidad + CPV derivado
+  // Especialidades con tasa especial (2.5%): Corporal, Depilación, Facial, Medicina estética, Wellness
+  // Citas Primera Vez (7%) cuando sea la Derivadora
+  const RC_ESP = ['Corporal','Depilación','Facial','Medicina estética','Wellness'];
+  const rcEspPct  = v('rc_esp_pct')/100;
+  const rcCpvPct  = v('rc_cpv_pct')/100;
+  const rcDerivadoPct = v('rc_derivado_pct')/100;
+  const descuento = v('cfg_descuento')/100;
+
   [...recepcionHer.map(k=>({k,suc:'Heredia'})),...recepcionLin.map(k=>({k,suc:'Lindora'}))].forEach(({k,suc}) => {
-    const pd=findPD(k); const vp=findVP(k)||{total:0,name:k};
-    const dp=findDP(k)||{total:0};
+    const pd=findPD(k);
+    const dp=findDP(k)||{total:0, bySpec:{}};
     const pct=pd?.total_pct||0;
-    const rateVend=pct<0.8?v('rc_0_80')/100:pct<1.0?v('rc_80_100')/100:v('rc_100')/100;
-    const comVend=vp.total*rateVend;
-    const comDeriv=dp.total*rcDerivadoPct;
-    const com=comVend+comDeriv;
-    const derivLine=dp.total>0?` + Derivado $${fmt(dp.total)} × ${v('rc_derivado_pct')}% = $${fmt(comDeriv)}`:'';
-    resultData.push({nombre:pd?.name||vp.name||k,rol:'Recepción',sucursal:suc,
-      produccion_neta:vp.total, produccion_derivado:dp.total,
-      cumplimiento:pct,comision:com,comision_servicios:comVend,comision_derivado:comDeriv,
-      detalle:`Vend ${(pct*100).toFixed(1)}% → ${(rateVend*100).toFixed(1)}% = $${fmt(comVend)}${derivLine}`});
+
+    // Especialidades (vendedor): tasa 2.5% sobre producción neta de cada esp.
+    let comEsp=0, detalleEsp=[];
+    RC_ESP.forEach(esp => {
+      const espProd=(pd?.bySpec?.[esp]?.prod||0)*(1-descuento);
+      if(espProd>0){
+        comEsp+=espProd*rcEspPct;
+        detalleEsp.push(`${esp} $${fmt(espProd)}×${v('rc_esp_pct')}%`);
+      }
+    });
+
+    // Citas Primera Vez como derivadora
+    const cpvDeriv=(dp?.bySpec?.['Citas Primera Vez']||dp?.total||0);
+    const comCpv=cpvDeriv*rcCpvPct*(1-descuento);
+
+    // Resto de derivaciones (no CPV)
+    const otrosDeriv=Math.max(0,(dp.total||0)-cpvDeriv);
+    const comOtrosDeriv=otrosDeriv*rcDerivadoPct*(1-descuento);
+
+    const com=comEsp+comCpv+comOtrosDeriv;
+
+    const cpvLine=comCpv>0?` | CPV Deriv $${fmt(cpvDeriv)}×${v('rc_cpv_pct')}%=$${fmt(comCpv)}`:'';
+    const derivLine=comOtrosDeriv>0?` | Otros Deriv $${fmt(otrosDeriv)}×${v('rc_derivado_pct')}%=$${fmt(comOtrosDeriv)}`:'';
+
+    resultData.push({nombre:pd?.name||k,rol:'Recepción',sucursal:suc,
+      produccion_neta:pd?.total_prod||0,
+      produccion_derivado:dp.total||0,
+      com_especialidades:comEsp,
+      com_cpv:comCpv,
+      com_derivado:comOtrosDeriv,
+      cumplimiento:pct,
+      comision:com,
+      comision_servicios:comEsp,
+      comision_derivado:comCpv+comOtrosDeriv,
+      detalle:`Esp: ${detalleEsp.join(', ')||'—'}=$${fmt(comEsp)}${cpvLine}${derivLine}`});
   });
 
   // Gerentes
@@ -766,7 +804,7 @@ function calcularComisiones() {
   const totalCom=resultData.reduce((s,r)=>s+r.comision,0);
   document.getElementById('summary_cards').innerHTML=`
     <div class="summary-card"><div class="s-label">Total a Pagar</div><div class="s-value">$${fmt(totalCom)}</div></div>
-    <div class="summary-card"><div class="s-label">Prod. Neta Total</div><div class="s-value">$${fmt((branchData['Heredia']?.prod||0+branchData['Lindora']?.prod||0)*(1-descuento))}</div></div>
+    <div class="summary-card"><div class="s-label">Prod. Neta Total</div><div class="s-value">$${fmt(((branchData['Heredia']?.prod||0)+(branchData['Lindora']?.prod||0))*(1-descuento))}</div></div>
     <div class="summary-card"><div class="s-label">Con comisión</div><div class="s-value">${resultData.filter(r=>r.comision>0).length}</div><div class="s-sub">de ${resultData.length} personas</div></div>
     <div class="summary-card"><div class="s-label">Heredia</div><div class="s-value ${(branchData['Heredia']?.pct||0)>=1?'green':'warn'}">${((branchData['Heredia']?.pct||0)*100).toFixed(1)}%</div><div class="s-sub">$${fmt(branchData['Heredia']?.obj||0)} obj</div></div>
     <div class="summary-card"><div class="s-label">Lindora</div><div class="s-value ${(branchData['Lindora']?.pct||0)>=1?'green':'warn'}">${((branchData['Lindora']?.pct||0)*100).toFixed(1)}%</div><div class="s-sub">$${fmt(branchData['Lindora']?.obj||0)} obj</div></div>`;
@@ -793,8 +831,20 @@ function calcularComisiones() {
       rows.sort((a,b)=>roles.indexOf(a.rol)-roles.indexOf(b.rol)).forEach(r=>{
         const prodCom=prodComByName[normalizeKey(r.nombre)]||0;
         const totalPersona=r.comision+prodCom;
-        const prodLine=prodCom>0?`<div style="font-size:10px;color:var(--accent2)">+ Productos $${fmt(prodCom)}</div>`:'';
-        resHTML+=`<div class="resumen-row"><div><div class="r-name">${r.nombre}</div><div class="r-role"><span class="badge ${rolColors[r.rol]||''}">${r.rol}</span></div>${prodLine}</div><div class="${totalPersona>0?'r-amount':'r-amount zero'}">${totalPersona>0?'$'+fmt(totalPersona):'—'}</div></div>`;
+        const prodCom=prodComByName[normalizeKey(r.nombre)]||0;
+        const totalPersona=r.comision+prodCom;
+        // Breakdown por categoría
+        const lines=[];
+        if(r.com_especialidades>0) lines.push(`<span>Especialidades $${fmt(r.com_especialidades)}</span>`);
+        if(r.comision_by_spec?.['Citas Primera Vez']>0||r.com_cpv>0)
+          lines.push(`<span>CPV $${fmt(r.com_cpv||r.comision_by_spec?.['Citas Primera Vez']||0)}</span>`);
+        if((r.comision_derivado||r.produccion_derivado)>0&&!r.com_especialidades)
+          lines.push(`<span>Derivaciones $${fmt(r.comision_derivado||0)}</span>`);
+        if(r.comision_servicios>0&&r.rol!=='Recepción')
+          lines.push(`<span>Servicios $${fmt(r.comision_servicios)}</span>`);
+        if(prodCom>0) lines.push(`<span style="color:var(--accent2)">Productos $${fmt(prodCom)}</span>`);
+        const breakdownHTML=lines.length?`<div style="font-size:10px;color:var(--muted);line-height:1.8;margin-top:2px">${lines.join(' · ')}</div>`:'';
+        resHTML+=`<div class="resumen-row"><div><div class="r-name">${r.nombre}</div><div class="r-role"><span class="badge ${rolColors[r.rol]||''}">${r.rol}</span></div>${breakdownHTML}</div><div class="${totalPersona>0?'r-amount':'r-amount zero'}">${totalPersona>0?'$'+fmt(totalPersona):'—'}</div></div>`;
       });
       resHTML+=`</div>`;
     });
@@ -905,11 +955,21 @@ function calcularProductos() {
   }).join('');
 
   // ── Comisión por Derivador ───────────────────────────────────
+  // Mapa de sucursal por persona (del cálculo principal)
+  const sucursalByName={};
+  (window._resultData||resultData||[]).forEach(p=>{
+    sucursalByName[normalizeKey(p.nombre)]=p.sucursal;
+  });
+
   const derivMap={};
   prodData.forEach(r=>{
     const d=r.derivador||''; if(!d||d==='nan') return;
     const k=normalizeKey(d);
-    if(!derivMap[k]) derivMap[k]={name:d,totalAbonado:0,totalNeto:0,comision:0,unidades:0};
+    // Respetar sucursal: solo atribuir si la sucursal del producto coincide con la del empleado
+    const empSuc=sucursalByName[k]||'';
+    const prodSuc=(r.sucursal||'').trim();
+    if(empSuc && prodSuc && empSuc!==prodSuc) return; // sucursal no coincide
+    if(!derivMap[k]) derivMap[k]={name:d,totalAbonado:0,totalNeto:0,comision:0,unidades:0,sucursal:empSuc||prodSuc};
     derivMap[k].totalAbonado+=r.abonado;
     derivMap[k].totalNeto+=r.abonadoNeto;
     derivMap[k].comision+=r.comision;
@@ -956,6 +1016,7 @@ function calcularProductos() {
   Object.values(derivMap).forEach(d => {
     window._prodComByName[normalizeKey(d.name)] = d.comision;
   });
+  window._resultData = resultData;
   if (window._renderResumenGrid) window._renderResumenGrid();
 
   // ── Unidades por Marca por Persona ───────────────────────────
