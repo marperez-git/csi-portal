@@ -182,10 +182,12 @@ window.addEventListener('beforeprint', prepChartsForPrint);
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+/* AUTH_DISABLED
+
 (function() {
   const _sb = window.supabase.createClient('https://bfrduldmcybnffjjwotb.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmcmR1bGRtY3libmZmamp3b3RiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NjQ5MzgsImV4cCI6MjA5ODM0MDkzOH0.tAje3855dqhF0ncfx2jdmQM_bi735vVwoUY2aUZnNCo');
   window._supabase = _sb;
-  document.documentElement.style.visibility = 'hidden';
+  // document.documentElement.style.visibility = 'hidden'; // AUTH_DISABLED
 
   _sb.auth.getSession().then(async ({ data: { session } }) => {
     if (!session) {
@@ -200,9 +202,11 @@ window.addEventListener('beforeprint', prepChartsForPrint);
     }
     window._userProfile = profile;
     window._userId = session.user.id;
-    document.documentElement.style.visibility = '';
+    document.documentElement.style.visibility = ''; // AUTH_DISABLED
   });
 })();
+
+AUTH_DISABLED */
 </script>
 <script>
 window.addEventListener("DOMContentLoaded", () => {
